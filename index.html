@@ -178,7 +178,7 @@
     <svg width="200" height="200" viewBox="0 0 200 200">
       <circle id="ring-bg" cx="100" cy="100" r="88" fill="none" stroke-width="10"/>
       <circle id="ring-progress" cx="100" cy="100" r="88" fill="none" stroke-width="10"
-        stroke-dasharray="552.92" stroke-dashoffset="0"/>
+        stroke-dashoffset="0"/>
     </svg>
     <div class="ring-center">
       <div id="time-display">25:00</div>
@@ -211,6 +211,7 @@
 <script>
 const CIRCUMFERENCE = 2 * Math.PI * 88;
 const ring = document.getElementById('ring-progress');
+ring.style.strokeDasharray = CIRCUMFERENCE;
 const timeDisplay = document.getElementById('time-display');
 const phaseLabel = document.getElementById('phase-label');
 const btnToggle = document.getElementById('btn-toggle');
