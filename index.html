@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Focus Sprint Timer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f7f6f3;
+    --surface: #ffffff;
+    --border: rgba(0,0,0,0.1);
+    --text: #1a1a1a;
+    --muted: #888;
+    --accent: #4f46e5;
+    --accent-light: #eef2ff;
+    --success: #16a34a;
+    --success-light: #dcfce7;
+    --ring-bg: #e5e7eb;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111110;
+      --surface: #1c1c1a;
+      --border: rgba(255,255,255,0.1);
+      --text: #f0efea;
+      --muted: #888;
+      --accent: #818cf8;
+      --accent-light: #1e1b4b;
+      --success: #4ade80;
+      --success-light: #052e16;
+      --ring-bg: #2c2c2a;
+    }
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    padding: 24px;
+  }
+
+  h1 { font-size: 15px; font-weight: 500; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; }
+
+  .card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: 20px;
+    padding: 40px 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+    box-shadow: var(--shadow);
+    width: 100%;
+    max-width: 380px;
+  }
+
+  /* Ring */
+  .ring-wrap { position: relative; width: 200px; height: 200px; }
+  .ring-wrap svg { transform: rotate(-90deg); }
+  #ring-bg { stroke: var(--ring-bg); }
+  #ring-progress { stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset 0.5s linear, stroke 0.3s; }
+  .ring-center {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px;
+  }
+  #time-display { font-size: 42px; font-weight: 300; letter-spacing: -1px; }
+  #phase-label { font-size: 12px; color: var(--muted); font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
+
+  /* Controls */
+  .controls { display: flex; gap: 12px; align-items: center; }
+  button {
+    border: 0.5px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background 0.12s, transform 0.08s;
+  }
+  button:active { transform: scale(0.97); }
+  #btn-toggle {
+    background: var(--accent);
+    color: #fff;
+    border-color: transparent;
+    padding: 12px 32px;
+    font-size: 15px;
+    border-radius: 12px;
+    min-width: 110px;
+  }
+  #btn-reset { padding: 12px 16px; color: var(--muted); }
+  #btn-reset:hover { background: var(--bg); }
+
+  /* Duration picker */
+  .picker { display: flex; gap: 8px; }
+  .dur-btn {
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--muted);
+    border-color: transparent;
+    background: transparent;
+  }
+  .dur-btn.active, .dur-btn:hover { background: var(--accent-light); color: var(--accent); }
+
+  /* Session log */
+  .log-section { width: 100%; max-width: 380px; }
+  .log-header { font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 10px; }
+  #log-list { display: flex; flex-direction: column; gap: 6px; }
+  .log-item {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 13px;
+    animation: slide-in 0.25s ease;
+  }
+  @keyframes slide-in {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .log-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
+  .log-time { color: var(--muted); margin-left: auto; }
+
+  /* Celebration overlay */
+  #celebration {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.35);
+    align-items: center; justify-content: center;
+    z-index: 100;
+  }
+  #celebration.show { display: flex; }
+  .celebrate-card {
+    background: var(--surface);
+    border-radius: 20px;
+    padding: 48px 56px;
+    text-align: center;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+    animation: pop 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes pop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .celebrate-emoji { font-size: 56px; }
+  .celebrate-title { font-size: 22px; font-weight: 500; }
+  .celebrate-sub { color: var(--muted); font-size: 14px; }
+  #btn-dismiss { margin-top: 8px; background: var(--accent); color: #fff; border-color: transparent; padding: 10px 28px; border-radius: 10px; }
+
+  /* Confetti canvas */
+  #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 99; }
+</style>
+</head>
+<body>
+
+<h1>Focus Sprint</h1>
+
+<div class="card">
+  <div class="picker" id="picker">
+    <button class="dur-btn" data-min="15">15m</button>
+    <button class="dur-btn active" data-min="25">25m</button>
+    <button class="dur-btn" data-min="50">50m</button>
+  </div>
+
+  <div class="ring-wrap">
+    <svg width="200" height="200" viewBox="0 0 200 200">
+      <circle id="ring-bg" cx="100" cy="100" r="88" fill="none" stroke-width="10"/>
+      <circle id="ring-progress" cx="100" cy="100" r="88" fill="none" stroke-width="10"
+        stroke-dasharray="552.92" stroke-dashoffset="0"/>
+    </svg>
+    <div class="ring-center">
+      <div id="time-display">25:00</div>
+      <div id="phase-label">ready</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="btn-reset" onclick="reset()">↺ Reset</button>
+    <button id="btn-toggle" onclick="toggle()">Start</button>
+  </div>
+</div>
+
+<div class="log-section">
+  <div class="log-header">Completed sessions</div>
+  <div id="log-list"><div style="font-size:13px;color:var(--muted);padding:6px 0">No sessions yet — finish one to log it.</div></div>
+</div>
+
+<div id="celebration">
+  <div class="celebrate-card">
+    <div class="celebrate-emoji">🎉</div>
+    <div class="celebrate-title">Sprint complete!</div>
+    <div class="celebrate-sub" id="celebrate-sub">You focused for 25 minutes.</div>
+    <button id="btn-dismiss" onclick="dismiss()">Keep going</button>
+  </div>
+</div>
+
+<canvas id="confetti"></canvas>
+
+<script>
+const CIRCUMFERENCE = 2 * Math.PI * 88;
+const ring = document.getElementById('ring-progress');
+const timeDisplay = document.getElementById('time-display');
+const phaseLabel = document.getElementById('phase-label');
+const btnToggle = document.getElementById('btn-toggle');
+const logList = document.getElementById('log-list');
+
+let totalSeconds = 25 * 60;
+let remaining = totalSeconds;
+let running = false;
+let interval = null;
+let sessionCount = 0;
+let firstLog = true;
+
+function setProgress(frac) {
+  ring.style.strokeDashoffset = CIRCUMFERENCE * (1 - frac);
+}
+
+function fmt(s) {
+  const m = Math.floor(s / 60).toString().padStart(2, '0');
+  const sec = (s % 60).toString().padStart(2, '0');
+  return `${m}:${sec}`;
+}
+
+function render() {
+  timeDisplay.textContent = fmt(remaining);
+  setProgress(remaining / totalSeconds);
+}
+
+function toggle() {
+  if (running) {
+    clearInterval(interval);
+    running = false;
+    btnToggle.textContent = 'Resume';
+    phaseLabel.textContent = 'paused';
+  } else {
+    running = true;
+    btnToggle.textContent = 'Pause';
+    phaseLabel.textContent = 'focusing';
+    interval = setInterval(() => {
+      remaining--;
+      render();
+      if (remaining <= 0) {
+        clearInterval(interval);
+        running = false;
+        complete();
+      }
+    }, 1000);
+  }
+}
+
+function reset() {
+  clearInterval(interval);
+  running = false;
+  remaining = totalSeconds;
+  btnToggle.textContent = 'Start';
+  phaseLabel.textContent = 'ready';
+  ring.style.stroke = 'var(--accent)';
+  render();
+}
+
+function complete() {
+  sessionCount++;
+  const mins = Math.round(totalSeconds / 60);
+  ring.style.stroke = 'var(--success)';
+  phaseLabel.textContent = 'done!';
+  document.getElementById('celebrate-sub').textContent = `You focused for ${mins} minutes. Session #${sessionCount}.`;
+  document.getElementById('celebration').classList.add('show');
+  launchConfetti();
+  addLog(mins);
+}
+
+function dismiss() {
+  document.getElementById('celebration').classList.remove('show');
+  reset();
+}
+
+function addLog(mins) {
+  if (firstLog) { logList.innerHTML = ''; firstLog = false; }
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const item = document.createElement('div');
+  item.className = 'log-item';
+  item.innerHTML = `<div class="log-dot"></div><span>${mins} min sprint</span><span class="log-time">${timeStr}</span>`;
+  logList.prepend(item);
+}
+
+// Duration picker
+document.getElementById('picker').addEventListener('click', e => {
+  const btn = e.target.closest('.dur-btn');
+  if (!btn || running) return;
+  document.querySelectorAll('.dur-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  totalSeconds = parseInt(btn.dataset.min) * 60;
+  remaining = totalSeconds;
+  render();
+  phaseLabel.textContent = 'ready';
+  btnToggle.textContent = 'Start';
+  ring.style.stroke = 'var(--accent)';
+});
+
+// Confetti
+function launchConfetti() {
+  const canvas = document.getElementById('confetti');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const pieces = Array.from({ length: 80 }, () => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * -canvas.height * 0.5,
+    r: Math.random() * 6 + 3,
+    d: Math.random() * 2 + 1,
+    color: ['#4f46e5','#16a34a','#f59e0b','#ef4444','#06b6d4','#ec4899'][Math.floor(Math.random()*6)],
+    tilt: Math.random() * 10 - 5,
+    tiltAngle: 0,
+    tiltSpeed: Math.random() * 0.1 + 0.05,
+    opacity: 1,
+  }));
+  let frame;
+  let tick = 0;
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    tick++;
+    pieces.forEach(p => {
+      p.tiltAngle += p.tiltSpeed;
+      p.y += p.d + Math.sin(tick * 0.02) * 0.5;
+      p.x += Math.sin(p.tiltAngle) * 1.5;
+      if (tick > 120) p.opacity -= 0.012;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.opacity);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y, p.r, p.r * 0.5, p.tiltAngle, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+    if (pieces.every(p => p.opacity <= 0 || p.y > canvas.height)) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      cancelAnimationFrame(frame);
+      return;
+    }
+    frame = requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+render();
+</script>
+</body>
+</html>
